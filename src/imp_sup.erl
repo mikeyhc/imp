@@ -7,14 +7,14 @@
 
 -behaviour(supervisor).
 
--export([start_link/0]).
+-export([start_link/2]).
 
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
 
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+start_link(Token, ConfigRepo) ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, [Token, ConfigRepo]).
 
 %% sup_flags() = #{strategy => strategy(),         % optional
 %%                 intensity => non_neg_integer(), % optional
@@ -25,11 +25,13 @@ start_link() ->
 %%                  shutdown => shutdown(), % optional
 %%                  type => worker(),       % optional
 %%                  modules => modules()}   % optional
-init([]) ->
+init([Token, ConfigRepo]) ->
     SupFlags = #{strategy => one_for_all,
                  intensity => 0,
                  period => 1},
-    ChildSpecs = [],
+    ChildSpecs = [#{id => config_puller,
+                    start => {config_puller, start_link, [Token, ConfigRepo]}}
+                 ],
     {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions
