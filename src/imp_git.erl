@@ -1,5 +1,5 @@
 -module(imp_git).
--export([new/3, init/1, clone/1]).
+-export([new/3, init/1, clone/1, pull/1]).
 
 -record(git, {dir :: string(),
               remote :: string(),
@@ -21,6 +21,10 @@ clone(#git{dir=Dir, remote=Remote, token=Token}) ->
     Cmd = "git clone https://x-access-token:" ++ Token ++ "@" ++ Remote ++ " "
         ++ Dir,
     {0, _} = exec(Cmd),
+    ok.
+
+pull(Git) ->
+    {0, _} = git(Git, "pull"),
     ok.
 
 git(Git, Cmd) -> git(Git, Cmd, []).

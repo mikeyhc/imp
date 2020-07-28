@@ -25,22 +25,26 @@ init([Token, ConfigRepo]) ->
     {ok, #state{token=Token, repo=ConfigRepo}}.
 
 terminate(_Reason, #state{timer=TRef}) ->
-    stop_timer(TRef).
+    case TRef of
+        undefined -> ok;
+        _ -> stop_timer(TRef)
+    end.
 
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
 handle_cast(start, State=#state{repo=Repo, token=Token}) ->
     Git = imp_git:new(?DIR, Repo, Token),
-    case filelib:is_dir(Repo) of
+    case filelib:is_dir(?DIR) of
         true -> ok;
         false ->
             ok = imp_git:clone(Git)
     end,
     {ok, TRef} = start_timer(),
-    {noreply, State#state{timer=TRef}};
-handle_cast(run, State) ->
+    {noreply, State#state{timer=TRef, git=Git}};
+handle_cast(run, State=#state{git=Git}) ->
     logger:info("pulling configuration repository"),
+    ok = imp_git:pull(Git),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
