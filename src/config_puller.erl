@@ -1,28 +1,29 @@
 -module(config_puller).
 -behaviour(gen_server).
 
--export([start_link/2]).
+-export([start_link/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2]).
 
 -define(INTERVAL, 300000). % 5 minutes
--define(DIR, "priv/repo").
 
--record(state, {token :: string(),
+-record(state, {dir :: string(),
+                token :: string(),
                 repo :: string(),
                 timer :: timer:tref() | undefined,
-                git :: imp_git:git() | undefined
+                git :: imp_git:git() | undefined,
+                last_commit :: string() | undefined
                }).
 
 %% API functions
 
-start_link(Token, ConfigRepo) ->
-    gen_server:start_link(?MODULE, [Token, ConfigRepo], []).
+start_link(Dir, Token, ConfigRepo) ->
+    gen_server:start_link(?MODULE, [Dir, Token, ConfigRepo], []).
 
 %% gen_server callbacks
 
-init([Token, ConfigRepo]) ->
+init([Dir, Token, ConfigRepo]) ->
     gen_server:cast(self(), start),
-    {ok, #state{token=Token, repo=ConfigRepo}}.
+    {ok, #state{dir=Dir, token=Token, repo=ConfigRepo}}.
 
 terminate(_Reason, #state{timer=TRef}) ->
     case TRef of
@@ -33,9 +34,9 @@ terminate(_Reason, #state{timer=TRef}) ->
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
 
-handle_cast(start, State=#state{repo=Repo, token=Token}) ->
-    Git = imp_git:new(?DIR, Repo, Token),
-    case filelib:is_dir(?DIR) of
+handle_cast(start, State=#state{dir=Dir, repo=Repo, token=Token}) ->
+    Git = imp_git:new(Dir, Repo, Token),
+    case filelib:is_dir(Dir) of
         true -> ok;
         false ->
             ok = imp_git:clone(Git)
@@ -43,8 +44,9 @@ handle_cast(start, State=#state{repo=Repo, token=Token}) ->
     {ok, TRef} = start_timer(),
     {noreply, State#state{timer=TRef, git=Git}};
 handle_cast(run, State=#state{git=Git}) ->
-    logger:info("pulling configuration repository"),
     ok = imp_git:pull(Git),
+    ConfigRunner = imp_sup:get_config_runner(),
+    config_runner:notify_update(ConfigRunner),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -52,7 +54,7 @@ handle_cast(_Msg, State) ->
 %% internal functions
 
 start_timer() ->
-    logger:info("starting config pull timer"),
+    logger:info("starting config pull job"),
     gen_server:cast(self(), run),
     timer:apply_interval(?INTERVAL, gen_server, cast, [self(), run]).
 
