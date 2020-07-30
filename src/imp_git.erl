@@ -1,6 +1,6 @@
 -module(imp_git).
 -export([new/1, new/3, init/1, clone/1, pull/1, rev_parse/2, diff/4,
-         ls_files/1]).
+         ls_files/1, dir/1]).
 
 -record(git, {dir :: string(),
               remote :: string() | undefined,
@@ -17,6 +17,9 @@ new(Dir, Remote, Token) ->
     #git{dir=Dir,
          remote=Remote,
          token=Token}.
+
+dir(Git) ->
+    Git#git.dir.
 
 init(Git) ->
     {0, _} = git(Git, "init"),

@@ -7,15 +7,16 @@
 
 -behaviour(supervisor).
 
--export([start_link/2, get_config_runner/0]).
+-export([start_link/3, get_config_runner/0]).
 
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
 -define(DIR, "priv/repo").
 
-start_link(Token, ConfigRepo) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, [Token, ConfigRepo]).
+start_link(Token, ConfigRepo, Handlers) ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE,
+                          [Token, ConfigRepo, Handlers]).
 
 get_config_runner() ->
     Children = supervisor:which_children(?SERVER),
@@ -31,7 +32,7 @@ get_config_runner() ->
 %%                  shutdown => shutdown(), % optional
 %%                  type => worker(),       % optional
 %%                  modules => modules()}   % optional
-init([Token, ConfigRepo]) ->
+init([Token, ConfigRepo, Handlers]) ->
     SupFlags = #{strategy => one_for_all,
                  intensity => 0,
                  period => 1},
@@ -39,7 +40,7 @@ init([Token, ConfigRepo]) ->
                     start => {config_puller, start_link,
                               [?DIR, Token, ConfigRepo]}},
                   #{id => config_runner,
-                    start => {config_runner, start_link, [?DIR]}}
+                    start => {config_runner, start_link, [?DIR, Handlers]}}
                  ],
     {ok, {SupFlags, ChildSpecs}}.
 
