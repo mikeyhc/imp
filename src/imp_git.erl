@@ -1,6 +1,6 @@
 -module(imp_git).
 -export([new/1, new/3, init/1, clone/1, pull/1, rev_parse/2, diff/4,
-         ls_files/1, dir/1]).
+         ls_files/1, dir/1, add/2, commit/2, push/1]).
 
 -record(git, {dir :: string(),
               remote :: string() | undefined,
@@ -48,6 +48,18 @@ diff(Git, Start, End, Options) ->
 ls_files(Git) ->
     {0, Output} = git(Git, "ls-files"),
     lists:filter(fun empty_filter/1, string:split(Output, "\n", all)).
+
+add(Git, File) ->
+    {0, _} = git(Git, "add", [File]),
+    ok.
+
+commit(Git, Message) ->
+    {0, _} = git(Git, "commit", ["-m", "\"" ++ Message ++ "\""]),
+    ok.
+
+push(Git) ->
+    {0, _} = git(Git, "push", ["origin", "master"]),
+    ok.
 
 %% internal functions
 

@@ -16,11 +16,14 @@ handle_deployment(Path, DeploymentFile) ->
     ExpVsn = maps:get(<<"expected_version">>, Deployment),
     ActVsn = maps:get(<<"actual_version">>, Deployment),
     if ExpVsn =/= ActVsn ->
-           update_version(Deployment);
-            % TODO update deployment file
+           {ok, Container} = update_version(Deployment),
+           write_deployment_details(ExpVsn, Container, Deployment, Path,
+                                    DeploymentFile),
+           update;
        true ->
            logger:info("no changes for deployment ~s",
-                       [maps:get(<<"id">>, Deployment)])
+                       [maps:get(<<"id">>, Deployment)]),
+           noop
     end.
 
 update_version(Deployment) ->
@@ -37,12 +40,14 @@ first_deployment(BinVsn, Deployment) ->
     Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
     logger:info("deploying ~s for the first time, using version ~s", [Id, Vsn]),
     case imp_docker:run(Id, Vsn) of
-        {ok, Container} ->
+        Ok={ok, Container} ->
             % TODO health check
             logger:info("deploy of ~s:~s successful with ID ~s~n",
-                        [Id, Vsn, Container]);
-        {error, Error} ->
-            logger:error("failed to deploy ~s:~s: ~s", [Id, Vsn, Error])
+                        [Id, Vsn, Container]),
+            Ok;
+        Err={error, Error} ->
+            logger:error("failed to deploy ~s:~s: ~s", [Id, Vsn, Error]),
+            Err
     end.
 
 
@@ -52,3 +57,10 @@ update_deployment(ExpVsn, ActVsn, Deployment) ->
     % TODO start container
     % TODO healthcheck new container
     % TODO stop old container
+
+write_deployment_details(Vsn, Container, Deployment, Path, File) ->
+    BinContainers = [binary:list_to_bin(Container)],
+    NewDeployment = Deployment#{<<"actual_version">> => Vsn,
+                                <<"container">> => BinContainers},
+    Json = jsone:encode(NewDeployment),
+    ok = file:write_file(Path ++ "/" ++ File, Json).
