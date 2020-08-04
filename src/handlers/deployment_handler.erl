@@ -41,7 +41,7 @@ first_deployment(BinVsn, Deployment) ->
     logger:info("deploying ~s for the first time, using version ~s", [Id, Vsn]),
     case imp_docker:run(Id, Vsn) of
         Ok={ok, Container} ->
-            % TODO health check
+            % TODO healthcheck
             logger:info("deploy of ~s:~s successful with ID ~s~n",
                         [Id, Vsn, Container]),
             Ok;
@@ -52,15 +52,32 @@ first_deployment(BinVsn, Deployment) ->
 
 
 update_deployment(ExpVsn, ActVsn, Deployment) ->
+    Vsn = binary:bin_to_list(ExpVsn),
+    Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
     logger:info("migrating ~s from version ~s to version ~s",
-                [maps:get(<<"id">>, Deployment), ExpVsn, ActVsn]).
-    % TODO start container
-    % TODO healthcheck new container
-    % TODO stop old container
+                [Id, ExpVsn, ActVsn]),
+    case imp_docker:run(Id, Vsn) of
+        Ok={ok, Container} ->
+            % TODO healthcheck new container
+            logger:info("deploy of ~s:~s successful with ID ~s~n",
+                        [Id, Vsn, Container]),
+            OldContainers = lists:map(fun binary:bin_to_list/1,
+                                      maps:get(<<"containers">>, Deployment)),
+            case imp_docker:stop(OldContainers) of
+                ok ->
+                    ok = imp_docker:rm(OldContainers);
+                {error, Err} ->
+                    logger:error("failed to stop container: ~p", [Err])
+            end,
+            Ok;
+        Err={error, Error} ->
+            logger:error("failed to deploy ~s:~s: ~s", [Id, Vsn, Error]),
+            Err
+    end.
 
 write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     BinContainers = [binary:list_to_bin(Container)],
     NewDeployment = Deployment#{<<"actual_version">> => Vsn,
-                                <<"container">> => BinContainers},
-    Json = jsone:encode(NewDeployment),
+                                <<"containers">> => BinContainers},
+    Json = jsone:encode(NewDeployment, [{indent, 2}, {space, 1}]),
     ok = file:write_file(Path ++ "/" ++ File, Json).
