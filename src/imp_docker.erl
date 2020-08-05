@@ -8,7 +8,7 @@ run(Image, Version) ->
     run(Image, Version, []).
 
 run(Image, Version, Args) ->
-    case docker("run", ["-d", Image ++ ":" ++ Version|Args]) of
+    case docker("run", Args ++ ["-d", Image ++ ":" ++ Version]) of
         {0, Id} -> {ok, string:trim(Id)};
         Err -> {error, Err}
     end.
