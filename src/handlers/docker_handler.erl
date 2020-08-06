@@ -18,7 +18,6 @@ handle_deployment(Path, DeploymentFile) ->
     Containers = sets:from_list(ContainerList),
     {ok, PsOutput} = imp_docker:ps(["-q", "--no-trunc"]),
     CurrentContainers = sets:from_list(string:split(PsOutput, "\n", all)),
-    logger:info("comparing ~p to ~p~n", [Containers, CurrentContainers]),
     case sets:size(sets:subtract(Containers, CurrentContainers)) of
         0 -> noop;
         _ ->
