@@ -1,6 +1,6 @@
 -module(deployment_handler).
 
--export([handle/2]).
+-export([handle/2, deploy/1]).
 
 handle(Path, File) ->
     {ok, Regex} = re:compile("^deployments/.+.json$"),
@@ -31,18 +31,15 @@ update_version(Deployment) ->
 first_deployment(BinVsn, Deployment) ->
     Vsn = binary:bin_to_list(BinVsn),
     Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
-    Environment = maps:get(<<"environment">>, Deployment, #{}),
     logger:info("deploying ~s for the first time, using version ~s", [Id, Vsn]),
-    docker_deploy(Id, Vsn, build_env_args(Environment)).
+    deploy(Deployment).
 
 
 update_deployment(ExpVsn, ActVsn, Deployment) ->
-    Vsn = binary:bin_to_list(ExpVsn),
     Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
     logger:info("migrating ~s from version ~s to version ~s",
                 [Id, ExpVsn, ActVsn]),
-    Environment = maps:get(<<"environment">>, Deployment, #{}),
-    case docker_deploy(Id, Vsn, build_env_args(Environment)) of
+    case deploy(Deployment) of
         Ok={ok, _} ->
             OldContainers = lists:map(fun binary:bin_to_list/1,
                                       maps:get(<<"containers">>, Deployment)),
@@ -55,6 +52,13 @@ update_deployment(ExpVsn, ActVsn, Deployment) ->
             Ok;
         Err={error, _} -> Err
     end.
+
+% TODO move this elsewhere
+deploy(Deployment) ->
+    Environment = maps:get(<<"environment">>, Deployment, #{}),
+    Vsn = binary:bin_to_list(maps:get(<<"expected_version">>, Deployment)),
+    Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
+    docker_deploy(Id, Vsn, build_env_args(Environment)).
 
 write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     BinContainers = [binary:list_to_bin(Container)],

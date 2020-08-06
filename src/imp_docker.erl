@@ -1,6 +1,6 @@
 -module(imp_docker).
 
--export([run/2, run/3, stop/1, rm/1]).
+-export([run/2, run/3, stop/1, rm/1, ps/0, ps/1]).
 
 %% API functions
 
@@ -22,6 +22,14 @@ stop(Container) ->
 rm(Container) ->
     case docker("rm", Container) of
         {0, _} -> ok;
+        {_, Msg} -> {error, string:trim(Msg)}
+    end.
+
+ps() -> ps([]).
+
+ps(Args) ->
+    case docker("ps", Args) of
+        {0, Msg} -> {ok, string:trim(Msg)};
         {_, Msg} -> {error, string:trim(Msg)}
     end.
 

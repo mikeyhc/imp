@@ -13,8 +13,9 @@ start(_StartType, _StartArgs) ->
     AuthToken = getenv("IMP_TOKEN"),
     ConfigRepo = getenv("IMP_CONFIG_REPO"),
     % TODO read this from a config file
-    Handlers = [deployment_handler],
-    imp_sup:start_link(AuthToken, ConfigRepo, Handlers).
+    Handlers = [docker_handler],
+    ChangeHandlers = [deployment_handler],
+    imp_sup:start_link(AuthToken, ConfigRepo, Handlers, ChangeHandlers).
 
 stop(_State) ->
     ok.
