@@ -12,25 +12,27 @@
 
 -spec new(string()) -> git().
 new(Dir) ->
-    set_config(#git{dir=Dir}).
+    #git{dir=Dir}.
 
 -spec new(string(), string(), string()) -> git().
 new(Dir, Remote, Token) ->
-    set_config(#git{dir=Dir,
-                    remote=Remote,
-                    token=Token}).
+    #git{dir=Dir,
+         remote=Remote,
+         token=Token}.
 
 dir(Git) ->
     Git#git.dir.
 
 init(Git) ->
     {0, _} = git(Git, "init"),
+    set_config(Git),
     ok.
 
-clone(#git{dir=Dir, remote=Remote, token=Token}) ->
+clone(Git=#git{dir=Dir, remote=Remote, token=Token}) ->
     Cmd = "git clone https://x-access-token:" ++ Token ++ "@" ++ Remote ++ " "
         ++ Dir,
     {0, _} = imp_exec:exec(Cmd),
+    set_config(Git),
     ok.
 
 pull(Git) ->
@@ -72,5 +74,4 @@ empty_filter([_|_]) -> true.
 
 set_config(Git) ->
     {0, _} = git(Git, "config", ["user.name", "imp"]),
-    {0, _} = git(Git, "config", ["user.email", "imp@atmosia.net"]),
-    Git.
+    {0, _} = git(Git, "config", ["user.email", "imp@atmosia.net"]).
