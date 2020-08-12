@@ -12,13 +12,13 @@
 
 -spec new(string()) -> git().
 new(Dir) ->
-    #git{dir=Dir}.
+    set_config(#git{dir=Dir}).
 
 -spec new(string(), string(), string()) -> git().
 new(Dir, Remote, Token) ->
-    #git{dir=Dir,
-         remote=Remote,
-         token=Token}.
+    set_config(#git{dir=Dir,
+                    remote=Remote,
+                    token=Token}).
 
 dir(Git) ->
     Git#git.dir.
@@ -64,9 +64,13 @@ push(Git) ->
 %% internal functions
 
 git(Git, Cmd) -> git(Git, Cmd, []).
-
 git(#git{dir=Dir}, Cmd, Args) ->
     imp_exec:exec(string:join(["git", "-C", Dir, Cmd|Args], " ")).
 
 empty_filter([]) -> false;
 empty_filter([_|_]) -> true.
+
+set_config(Git) ->
+    {0, _} = git(Git, "config", ["user.name", "imp"]),
+    {0, _} = git(Git, "config", ["user.email", "imp@atmosia.net"]),
+    Git.
