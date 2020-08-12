@@ -1,0 +1,12 @@
+[{kernel,
+  [{logger_level, info},
+   {logger, [
+    %% console logger
+    {handler, default, logger_std_h,
+     #{fomatter => #{
+         legacy_header => false,
+         single_line => true
+        }}}
+    ]}
+  ]
+ }].
