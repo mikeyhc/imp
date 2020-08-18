@@ -55,10 +55,9 @@ update_deployment(ExpVsn, ActVsn, Deployment) ->
 
 % TODO move this elsewhere
 deploy(Deployment) ->
-    Environment = maps:get(<<"environment">>, Deployment, #{}),
     Vsn = binary:bin_to_list(maps:get(<<"expected_version">>, Deployment)),
     Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
-    docker_deploy(Id, Vsn, build_env_args(Environment)).
+    docker_deploy(Id, Vsn, build_args(Deployment)).
 
 write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     BinContainers = [binary:list_to_bin(Container)],
@@ -80,9 +79,22 @@ docker_deploy(Id, Vsn, Args) ->
             Err
     end.
 
+build_args(Deployment) ->
+    Args0 = build_env_args(maps:get(<<"environment">>, Deployment, #{})),
+    build_publish_args(maps:get(<<"publish">>, Deployment, [])) ++ Args0.
+
 build_env_args(EnvMap) ->
     List = maps:to_list(EnvMap),
     F = fun({Key, Val}) ->
                 ["-e", binary:bin_to_list(<<Key/binary, "=", Val/binary>>)]
         end,
     lists:flatmap(F, List).
+
+build_publish_args(PublishList) ->
+    F = fun(#{<<"external">> := Ext, <<"internal">> := Int}) ->
+                ["-p", to_list(Ext) ++ ":" ++ to_list(Int)]
+        end,
+    lists:flatmap(F, PublishList).
+
+to_list(V) when is_binary(V) -> binary_to_list(V);
+to_list(V) when is_integer(V) -> integer_to_list(V).
