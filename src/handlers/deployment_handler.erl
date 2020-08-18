@@ -54,7 +54,8 @@ update_deployment(ExpVsn, ActVsn, Deployment) ->
 deploy(Deployment) ->
     Vsn = binary:bin_to_list(maps:get(<<"expected_version">>, Deployment)),
     Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
-    docker_deploy(Id, Vsn, build_args(Deployment)).
+    Cmd = lists:map(fun binary_to_list/1, maps:get(<<"cmd">>, Deployment, [])),
+    docker_deploy(Id, Vsn, build_options(Deployment), Cmd).
 
 write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     BinContainers = [binary:list_to_bin(Container)],
@@ -64,8 +65,8 @@ write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     ok = file:write_file(Path ++ "/" ++ File, Json).
 
 
-docker_deploy(Id, Vsn, Args) ->
-    case imp_docker:run(Id, Vsn, Args) of
+docker_deploy(Id, Vsn, Opts, Cmd) ->
+    case imp_docker:run(Id, Vsn, Opts, Cmd) of
         Ok={ok, Container} ->
             % TODO healthcheck
             logger:info("deploy of ~s:~s successful with ID ~s~n",
@@ -76,7 +77,7 @@ docker_deploy(Id, Vsn, Args) ->
             Err
     end.
 
-build_args(Deployment) ->
+build_options(Deployment) ->
     Args0 = build_env_args(maps:get(<<"environment">>, Deployment, #{})),
     Args1 = build_publish_args(maps:get(<<"publish">>, Deployment, [])),
     Args2 = build_volume_args(maps:get(<<"volumes">>, Deployment, [])),

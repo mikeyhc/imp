@@ -1,14 +1,17 @@
 -module(imp_docker).
 
--export([run/2, run/3, stop/1, rm/1, ps/0, ps/1]).
+-export([run/2, run/3, run/4, stop/1, rm/1, ps/0, ps/1]).
 
 %% API functions
 
 run(Image, Version) ->
     run(Image, Version, []).
 
-run(Image, Version, Args) ->
-    case docker("run", Args ++ ["-d", Image ++ ":" ++ Version]) of
+run(Image, Version, Opts) ->
+    run(Image, Version, Opts, []).
+
+run(Image, Version, Opts, Cmd) ->
+    case docker("run", Opts ++ ["-d", Image ++ ":" ++ Version] ++ Cmd) of
         {0, Id} -> {ok, string:trim(Id)};
         Err -> {error, Err}
     end.
