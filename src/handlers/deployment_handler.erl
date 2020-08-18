@@ -39,19 +39,16 @@ update_deployment(ExpVsn, ActVsn, Deployment) ->
     Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
     logger:info("migrating ~s from version ~s to version ~s",
                 [Id, ExpVsn, ActVsn]),
-    case deploy(Deployment) of
-        Ok={ok, _} ->
-            OldContainers = lists:map(fun binary:bin_to_list/1,
-                                      maps:get(<<"containers">>, Deployment)),
-            case imp_docker:stop(OldContainers) of
-                ok ->
-                    ok = imp_docker:rm(OldContainers);
-                {error, Err} ->
-                    logger:error("failed to stop container: ~p", [Err])
-            end,
-            Ok;
-        Err={error, _} -> Err
-    end.
+    % Need to remove old containers first as they own ports
+    OldContainers = lists:map(fun binary:bin_to_list/1,
+                              maps:get(<<"containers">>, Deployment)),
+    case imp_docker:stop(OldContainers) of
+        ok ->
+            ok = imp_docker:rm(OldContainers);
+        {error, Err} ->
+            logger:error("failed to stop container: ~p", [Err])
+    end,
+    deploy(Deployment).
 
 % TODO move this elsewhere
 deploy(Deployment) ->
@@ -81,7 +78,9 @@ docker_deploy(Id, Vsn, Args) ->
 
 build_args(Deployment) ->
     Args0 = build_env_args(maps:get(<<"environment">>, Deployment, #{})),
-    build_publish_args(maps:get(<<"publish">>, Deployment, [])) ++ Args0.
+    Args1 = build_publish_args(maps:get(<<"publish">>, Deployment, [])),
+    Args2 = build_volume_args(maps:get(<<"volumes">>, Deployment, [])),
+    Args0 ++ Args1 ++ Args2.
 
 build_env_args(EnvMap) ->
     List = maps:to_list(EnvMap),
@@ -96,5 +95,16 @@ build_publish_args(PublishList) ->
         end,
     lists:flatmap(F, PublishList).
 
+build_volume_args(VolumeList) ->
+    F = fun(V=#{<<"host_path">> := Host, <<"container_path">> := Container}) ->
+                Options = enlist(maps:get(<<"options">>, V, [])),
+                Parts = lists:map(fun to_list/1, [Host, Container|Options]),
+                ["-v", string:join(Parts, ":")]
+        end,
+    lists:flatmap(F, VolumeList).
+
 to_list(V) when is_binary(V) -> binary_to_list(V);
 to_list(V) when is_integer(V) -> integer_to_list(V).
+
+enlist(V) when is_list(V) -> V;
+enlist(V) -> [V].
