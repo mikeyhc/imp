@@ -21,7 +21,7 @@ handle_deployment(Path, DeploymentFile) ->
 
 update_version(Deployment) ->
     ExpVsn = maps:get(<<"expected_version">>, Deployment),
-    ActVsn = maps:get(<<"actual_version">>, Deployment),
+    ActVsn = maps:get(<<"actual_version">>, Deployment, null),
     if ActVsn =:= null ->
            first_deployment(ExpVsn, Deployment);
        true ->
@@ -53,9 +53,9 @@ update_deployment(ExpVsn, ActVsn, Deployment) ->
 % TODO move this elsewhere
 deploy(Deployment) ->
     Vsn = binary:bin_to_list(maps:get(<<"expected_version">>, Deployment)),
-    Id = binary:bin_to_list(maps:get(<<"id">>, Deployment)),
+    Image = binary:bin_to_list(maps:get(<<"image">>, Deployment)),
     Cmd = lists:map(fun binary_to_list/1, maps:get(<<"cmd">>, Deployment, [])),
-    docker_deploy(Id, Vsn, build_options(Deployment), Cmd).
+    docker_deploy(Image, Vsn, build_options(Deployment), Cmd).
 
 write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     BinContainers = [binary:list_to_bin(Container)],
@@ -65,15 +65,15 @@ write_deployment_details(Vsn, Container, Deployment, Path, File) ->
     ok = file:write_file(Path ++ "/" ++ File, Json).
 
 
-docker_deploy(Id, Vsn, Opts, Cmd) ->
-    case imp_docker:run(Id, Vsn, Opts, Cmd) of
+docker_deploy(Image, Vsn, Opts, Cmd) ->
+    case imp_docker:run(Image, Vsn, Opts, Cmd) of
         Ok={ok, Container} ->
             % TODO healthcheck
             logger:info("deploy of ~s:~s successful with ID ~s~n",
-                        [Id, Vsn, Container]),
+                        [Image, Vsn, Container]),
             Ok;
         Err={error, Error} ->
-            logger:error("failed to deploy ~s:~s: ~s", [Id, Vsn, Error]),
+            logger:error("failed to deploy ~s:~s: ~s", [Image, Vsn, Error]),
             Err
     end.
 
@@ -81,7 +81,8 @@ build_options(Deployment) ->
     Args0 = build_env_args(maps:get(<<"environment">>, Deployment, #{})),
     Args1 = build_publish_args(maps:get(<<"publish">>, Deployment, [])),
     Args2 = build_volume_args(maps:get(<<"volumes">>, Deployment, [])),
-    Args0 ++ Args1 ++ Args2.
+    Args3 = build_label_args(maps:get(<<"labels">>, Deployment, [])),
+    Args0 ++ Args1 ++ Args2 ++ Args3.
 
 build_env_args(EnvMap) ->
     List = maps:to_list(EnvMap),
@@ -103,6 +104,10 @@ build_volume_args(VolumeList) ->
                 ["-v", string:join(Parts, ":")]
         end,
     lists:flatmap(F, VolumeList).
+
+build_label_args(LabelList) ->
+    lists:flatmap(fun(L) -> ["-l", "'" ++ binary_to_list(L) ++ "'"] end,
+                  LabelList).
 
 to_list(V) when is_binary(V) -> binary_to_list(V);
 to_list(V) when is_integer(V) -> integer_to_list(V).
