@@ -1,6 +1,6 @@
 -module(imp_docker).
 
--export([run/2, run/3, run/4, stop/1, rm/1, ps/0, ps/1]).
+-export([run/2, run/3, run/4, stop/1, rm/1, ps/0, ps/1, inspect/1]).
 
 %% API functions
 
@@ -33,6 +33,12 @@ ps() -> ps([]).
 ps(Args) ->
     case docker("ps", Args) of
         {0, Msg} -> {ok, string:trim(Msg)};
+        {_, Msg} -> {error, string:trim(Msg)}
+    end.
+
+inspect(Id) ->
+    case docker("inspect", [Id]) of
+        {0, Msg} -> {ok, Msg};
         {_, Msg} -> {error, string:trim(Msg)}
     end.
 
